@@ -1,0 +1,35 @@
+# Dependencias
+node_modules
+
+# Builds
+.next
+out
+dist
+
+# Variables de entorno (NUNCA committear)
+.env
+.env.local
+.env*.local
+
+# SQLite legacy (por si quedó algo)
+prisma/dev.db
+prisma/dev.db-journal
+prisma/*.db
+prisma/*.db-journal
+
+# Vercel
+.vercel
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editores
+.vscode
+.idea

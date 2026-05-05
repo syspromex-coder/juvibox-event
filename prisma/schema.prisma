@@ -1,0 +1,185 @@
+// Prisma schema - Jubivox Admin
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Event {
+  id         String   @id @default(cuid())
+  clientName String
+  phone      String?
+  eventType  String
+  date       DateTime
+  startTime  String
+  endTime    String
+  address    String?
+  // texto libre con servicios contratados
+  services   String?
+  total      Float    @default(0)
+  deposit    Float    @default(0)
+  // apartado | confirmado | pagado | cancelado
+  status     String   @default("apartado")
+  // moneda del evento. "MXN" (default) o "USD". No hay conversión automática:
+  // total/deposit y los pagos asociados se interpretan en esta moneda.
+  currency   String   @default("MXN")
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  payments   Payment[]
+  expenses   Expense[]
+  // cotizaciones convertidas en este evento
+  fromQuotes Quote[]
+  movements  InventoryMovement[]
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  date      DateTime
+  amount    Float
+  // efectivo | transferencia | tarjeta | otro
+  method    String
+  note      String?
+  createdAt DateTime @default(now())
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  date        DateTime
+  category    String
+  description String
+  amount      Float
+  eventId     String?
+  event       Event?   @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+}
+
+model Product {
+  id          String       @id @default(cuid())
+  name        String
+  salePrice   Float        @default(0)
+  // rendimiento (cuántas unidades produce la receta)
+  yieldQty    Float        @default(1)
+  notes       String?
+  ingredients Ingredient[]
+  quoteItems  QuoteItem[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Ingredient {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name      String
+  // costo total del ingrediente comprado
+  cost      Float   @default(0)
+  // cantidad usada (porcentaje del total comprado, 1 = todo)
+  qtyUsed   Float   @default(0)
+
+  /// Vínculo opcional al inventario para estimar consumo.
+  inventoryItemId String?
+  inventoryItem   InventoryItem? @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+  /// Cantidad de unidades del inventoryItem que consume UNA receta completa.
+  inventoryQty    Float          @default(0)
+}
+
+// ---------- Cotizaciones ----------
+
+model Quote {
+  id         String      @id @default(cuid())
+  clientName String
+  phone      String?
+  eventType  String
+  eventDate  DateTime?
+  notes      String?
+  // borrador | enviada | aceptada | rechazada
+  status     String      @default("borrador")
+  items      QuoteItem[]
+
+  /// Si la cotización fue convertida a evento, lo apuntamos aquí.
+  convertedToEventId String?
+  convertedToEvent   Event?    @relation(fields: [convertedToEventId], references: [id], onDelete: SetNull)
+  convertedAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model QuoteItem {
+  id        String   @id @default(cuid())
+  quoteId   String
+  quote     Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  /// Producto enlazado (opcional para permitir items custom).
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  /// Snapshot del nombre, así la cotización sigue legible si el producto se renombra o borra.
+  name      String
+  qty       Float    @default(1)
+  /// Costo unitario MXN al momento de la cotización (snapshot).
+  unitCost  Float    @default(0)
+  /// Precio de venta unitario MXN (snapshot, editable).
+  unitPrice Float    @default(0)
+  position  Int      @default(0)
+}
+
+// ---------- Inventario ----------
+
+model InventoryItem {
+  id          String              @id @default(cuid())
+  name        String
+  category    String              @default("General")
+  /// piezas | gramos | kilos | litros | mililitros | paquetes | cajas
+  unit        String              @default("piezas")
+  stock       Float               @default(0)
+  minStock    Float               @default(0)
+  unitCost    Float               @default(0)
+  supplier    String?
+  notes       String?
+  movements   InventoryMovement[]
+  ingredients Ingredient[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+}
+
+model InventoryMovement {
+  id        String        @id @default(cuid())
+  itemId    String
+  item      InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  /// entrada | salida | ajuste
+  type      String
+  date      DateTime      @default(now())
+  // siempre positiva; el "type" indica el signo
+  qty       Float
+  unitCost  Float         @default(0)
+  reason    String?
+  eventId   String?
+  event     Event?        @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  note      String?
+  createdAt DateTime      @default(now())
+}
+
+// ---------- Autenticación ----------
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  /// Email único, usado para login.
+  email     String   @unique
+  /// Hash bcrypt del password (NUNCA se guarda en texto plano).
+  password  String
+  /// ADMIN | EMPLEADO. Por defecto EMPLEADO para usuarios nuevos.
+  role      String   @default("EMPLEADO")
+  /// Teléfono de contacto, opcional.
+  phone     String?
+  /// Si false, el usuario no puede iniciar sesión.
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

@@ -1,0 +1,34 @@
+# PostgreSQL local para desarrollo de Jubivox Admin.
+#
+# Uso:
+#   docker compose up -d        # arranca la BD en background
+#   docker compose down          # la detiene (mantiene los datos)
+#   docker compose down -v       # la detiene y BORRA los datos
+#
+# Después de arrancar, tu .env ya apunta aquí por defecto:
+#   DATABASE_URL="postgresql://postgres:postgres@localhost:5432/jubivox"
+#
+# Para crear el schema y los datos de muestra:
+#   npm run db:push
+#   npm run db:seed
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: jubivox-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: jubivox
+    volumes:
+      - jubivox-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d jubivox"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  jubivox-pg-data:

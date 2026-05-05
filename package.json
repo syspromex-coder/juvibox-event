@@ -1,0 +1,55 @@
+{
+  "name": "juvibox-admin",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "predev": "prisma generate",
+    "dev": "next dev",
+    "prebuild": "prisma generate",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "vercel-build": "prisma generate && next build",
+    "db:push": "prisma db push && prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:seed:prod": "tsx prisma/seed-prod.ts",
+    "db:cleanup": "tsx prisma/cleanup-data.ts",
+    "db:create-admin": "tsx prisma/create-admin.ts",
+    "db:doctor": "tsx prisma/doctor.ts",
+    "db:reset-admin": "tsx prisma/force-reset-admin.ts",
+    "db:test-conn": "tsx prisma/test-connection.ts",
+    "clean:data": "tsx scripts/cleanData.ts",
+    "db:studio": "prisma studio",
+    "db:reset": "prisma db push --force-reset && prisma generate && tsx prisma/seed.ts",
+    "postinstall": "prisma generate"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^2.4.3",
+    "clsx": "^2.1.1",
+    "next": "14.2.15",
+    "next-auth": "^4.24.10",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-icons": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.16.10",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "14.2.15",
+    "postcss": "^8.4.47",
+    "prisma": "^5.22.0",
+    "tailwindcss": "^3.4.13",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2"
+  }
+}
