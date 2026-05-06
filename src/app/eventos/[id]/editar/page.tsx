@@ -5,6 +5,8 @@ import PageHeader from "@/components/layout/PageHeader";
 import { updateEvent } from "@/lib/actions/events";
 import { getServerT } from "@/lib/i18n-server";
 
+export const dynamic = "force-dynamic";
+
 export default async function EditarEventoPage({
   params,
 }: {

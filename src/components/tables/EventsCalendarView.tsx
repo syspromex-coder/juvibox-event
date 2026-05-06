@@ -148,7 +148,7 @@ export default async function EventsCalendarView({ events, monthParam }: Props) 
                   {dayEvents.slice(0, MAX_VISIBLE_DESKTOP).map((ev) => (
                     <li key={ev.id}>
                       <Link
-                        href={`/eventos/${ev.id}/editar`}
+                        href={`/eventos/${ev.id}`}
                         title={`${ev.clientName} · ${ev.startTime} · ${
                           STATUS_LABELS[ev.status] ?? ev.status
                         }`}
@@ -173,7 +173,7 @@ export default async function EventsCalendarView({ events, monthParam }: Props) 
                   {dayEvents.slice(0, MAX_VISIBLE_MOBILE).map((ev) => (
                     <li key={ev.id}>
                       <Link
-                        href={`/eventos/${ev.id}/editar`}
+                        href={`/eventos/${ev.id}`}
                         aria-label={`${ev.clientName} ${ev.startTime}`}
                         className={clsx(
                           "block h-1.5 w-full rounded-full",
@@ -254,7 +254,7 @@ function MonthEventsList({
         {monthEvents.map((ev) => (
           <li key={ev.id}>
             <Link
-              href={`/eventos/${ev.id}/editar`}
+              href={`/eventos/${ev.id}`}
               className="flex items-center gap-3 px-4 py-3 active:bg-slate-50"
             >
               <span

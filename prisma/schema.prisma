@@ -17,10 +17,24 @@ model Event {
   startTime  String
   endTime    String
   address    String?
+  /// Ubicación opcional para abrir en Google Maps. Puede ser una dirección
+  /// de texto libre, un link de Google Maps, o una ubicación compartida.
+  /// Si está vacío, el botón "Abrir en Maps" cae al campo `address`.
+  location   String?
   // texto libre con servicios contratados
   services   String?
   total      Float    @default(0)
   deposit    Float    @default(0)
+  /// Moneda del ANTICIPO específicamente. Es independiente de `currency` (la
+  /// moneda del evento entero) porque el anticipo lo puede pagar el cliente
+  /// en una moneda distinta a la del contrato.
+  /// Default "MXN" para back-compat con eventos viejos.
+  depositCurrency       String  @default("MXN")
+  /// TC MXN/USD usado al momento del anticipo. Foto del momento → su
+  /// equivalente en MXN no se mueve aunque el TC global cambie después.
+  /// Solo aplica cuando depositCurrency = "USD". Null si es MXN o si nunca
+  /// hubo anticipo.
+  depositExchangeRate   Float?
   // apartado | confirmado | pagado | cancelado
   status     String   @default("apartado")
   // moneda del evento. "MXN" (default) o "USD". No hay conversión automática:
@@ -43,6 +57,14 @@ model Payment {
   event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   date      DateTime
   amount    Float
+  /// Moneda del pago: "MXN" o "USD". Default MXN para back-compat con pagos
+  /// viejos que existían antes de esta columna.
+  currency  String   @default("MXN")
+  /// Tipo de cambio MXN por USD usado al momento del pago. Es una "foto" del TC
+  /// del momento, así el equivalente en MXN del pago no se mueve aunque el TC
+  /// global cambie después. Solo se setea cuando currency = "USD". Null cuando
+  /// el pago ya es en MXN (no hay nada que convertir).
+  exchangeRate Float?
   // efectivo | transferencia | tarjeta | otro
   method    String
   note      String?

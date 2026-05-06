@@ -117,7 +117,7 @@ export async function convertQuoteToEvent(id: string, formData: FormData) {
 
   if (quote.convertedToEventId) {
     // Ya fue convertida — redirige al evento existente
-    redirect(`/eventos/${quote.convertedToEventId}/editar`);
+    redirect(`/eventos/${quote.convertedToEventId}`);
   }
 
   const ventaTotal = quote.items.reduce((s, it) => s + it.qty * it.unitPrice, 0);
@@ -163,5 +163,5 @@ export async function convertQuoteToEvent(id: string, formData: FormData) {
 
   revalidatePath("/cotizaciones");
   revalidatePath("/eventos");
-  redirect(`/eventos/${event.id}/editar`);
+  redirect(`/eventos/${event.id}`);
 }

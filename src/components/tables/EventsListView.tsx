@@ -1,5 +1,6 @@
 import Link from "next/link";
 import DeleteButton from "@/components/ui/DeleteButton";
+import OpenInMapsButton from "@/components/ui/OpenInMapsButton";
 import { deleteEvent } from "@/lib/actions/events";
 import { formatAmount, type Currency } from "@/lib/currency";
 import {
@@ -24,6 +25,9 @@ type EventWithPayments = {
   deposit: number;
   /** "MXN" | "USD" — guardada en BD como string para evitar enum migrations. */
   currency: string;
+  /** Para botón "Abrir en Maps". Cae a `address` si está vacío. */
+  location: string | null;
+  address: string | null;
   payments: { amount: number }[];
 };
 
@@ -58,7 +62,7 @@ export default async function EventsListView({
           const balance = pendingBalance(ev);
           return (
             <li key={ev.id} className="list-card">
-              <Link href={`/eventos/${ev.id}/editar`} className="flex items-start gap-3">
+              <Link href={`/eventos/${ev.id}`} className="flex items-start gap-3">
                 <div className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700">
                   <div className="text-center leading-tight">
                     <div className="text-[10px] font-medium uppercase">
@@ -129,6 +133,11 @@ export default async function EventsListView({
                 >
                   {t("common.edit")}
                 </Link>
+                {/* Botón Maps inline. Si no hay location ni address, OpenInMapsButton devuelve null. */}
+                <OpenInMapsButton
+                  location={ev.location ?? ev.address}
+                  label={t("common.open_in_maps")}
+                />
                 <DeleteButton
                   action={deleteEvent.bind(null, ev.id)}
                   label={t("common.delete")}
@@ -172,9 +181,12 @@ export default async function EventsListView({
                       </div>
                     </td>
                     <td className="td">
-                      <div className="font-medium text-slate-900">
+                      <Link
+                        href={`/eventos/${ev.id}`}
+                        className="font-medium text-slate-900 hover:text-brand-700 hover:underline"
+                      >
                         {ev.clientName}
-                      </div>
+                      </Link>
                       {ev.phone && (
                         <div className="text-xs text-slate-500">
                           {ev.phone}
@@ -210,6 +222,10 @@ export default async function EventsListView({
                         >
                           {t("common.edit")}
                         </Link>
+                        <OpenInMapsButton
+                          location={ev.location ?? ev.address}
+                          label={t("common.open_in_maps")}
+                        />
                         <DeleteButton
                           action={deleteEvent.bind(null, ev.id)}
                           label={t("common.delete")}

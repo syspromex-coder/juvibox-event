@@ -187,7 +187,7 @@ export default function QuoteForm({
             ✓ {t("quote.converted.label")}.
           </div>
           <Link
-            href={`/eventos/${convertedToEventId}/editar`}
+            href={`/eventos/${convertedToEventId}`}
             className="text-sm font-medium text-emerald-800 hover:underline"
           >
             {t("quote.converted.go")}

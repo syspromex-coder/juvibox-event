@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { toInputDate } from "@/lib/utils";
 import { getServerT } from "@/lib/i18n-server";
+import OpenInMapsButton from "@/components/ui/OpenInMapsButton";
+import DepositAmountInputs from "./DepositAmountInputs";
 
 type EventInput = {
   id?: string;
@@ -11,9 +13,14 @@ type EventInput = {
   startTime: string;
   endTime: string;
   address: string | null;
+  location: string | null;
   services: string | null;
   total: number;
   deposit: number;
+  /** Moneda del anticipo (independiente de la moneda del evento). */
+  depositCurrency: string;
+  /** TC capturado al momento del anticipo, solo cuando depositCurrency=USD. */
+  depositExchangeRate: number | null;
   status: string;
   currency: string;
   notes: string | null;
@@ -111,13 +118,27 @@ export default async function EventForm({
           </div>
 
           <div className="md:col-span-2">
-            <label className="label">{t("form.address")}</label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="label" htmlFor="event-location">
+                {t("form.location")}
+              </label>
+              {/* Botón aparece si hay ubicación guardada. Para eventos viejos
+                  que solo tienen `address` (campo deprecated del form pero todavía
+                  en DB), cae a address como fallback para que el botón siga
+                  funcionando. */}
+              <OpenInMapsButton
+                location={e.location ?? e.address}
+                label={t("common.open_in_maps")}
+              />
+            </div>
             <input
-              name="address"
-              defaultValue={e.address ?? ""}
-              autoComplete="street-address"
+              id="event-location"
+              name="location"
+              defaultValue={e.location ?? ""}
+              placeholder={t("form.location.placeholder")}
               className="input"
             />
+            <p className="mt-1 text-xs text-slate-500">{t("form.location.hint")}</p>
           </div>
 
           <div className="md:col-span-2">
@@ -154,23 +175,21 @@ export default async function EventForm({
               className="input"
             />
           </div>
-          <div>
-            <label className="label">{t("form.deposit")}</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              inputMode="decimal"
-              name="deposit"
-              defaultValue={e.deposit ?? 0}
-              className="input"
-            />
-            {!event?.id && (
-              <p className="mt-1 text-xs text-slate-500">
-                {t("form.deposit.hint")}
-              </p>
-            )}
-          </div>
+          {/* Bloque cliente: anticipo + moneda + TC condicional + equivalente live */}
+          <DepositAmountInputs
+            defaultDeposit={e.deposit ?? 0}
+            defaultDepositCurrency={e.depositCurrency}
+            defaultDepositExchangeRate={e.depositExchangeRate ?? null}
+            isEditing={!!event?.id}
+            labels={{
+              deposit: t("form.deposit"),
+              depositHint: t("form.deposit.hint"),
+              currency: t("form.deposit.currency"),
+              exchangeRate: t("form.exchange_rate"),
+              exchangeRateHint: t("form.exchange_rate.hint"),
+              equivalent: t("form.equivalent_mxn"),
+            }}
+          />
 
           <div className="md:col-span-2">
             <label className="label">{t("form.notes")}</label>

@@ -5,6 +5,8 @@ import PageHeader from "@/components/layout/PageHeader";
 import { updatePayment } from "@/lib/actions/payments";
 import { getServerT } from "@/lib/i18n-server";
 
+export const dynamic = "force-dynamic";
+
 export default async function EditarPagoPage({
   params,
 }: {

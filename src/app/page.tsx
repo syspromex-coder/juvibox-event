@@ -3,12 +3,14 @@ import { prisma } from "@/lib/prisma";
 import StatCard from "@/components/ui/StatCard";
 import PageHeader from "@/components/layout/PageHeader";
 import CurrencyDisplay from "@/components/ui/CurrencyDisplay";
-import { formatAmount, type Currency } from "@/lib/currency";
+import { formatAmount, type Currency, DEFAULT_EXCHANGE_RATE } from "@/lib/currency";
 import CurrencyModeBadge from "@/components/ui/CurrencyModeBadge";
 import {
   fmtDate,
   pendingBalance,
   totalPaid,
+  paymentAmountMxn,
+  pendingBalanceMxn,
   startOfMonth,
   endOfMonth,
   getStatusLabels,
@@ -53,7 +55,12 @@ export default async function DashboardPage() {
       take: 6,
     }),
     prisma.event.findMany({ include: { payments: true } }),
-    prisma.payment.findMany({ where: { date: { gte: monthStart, lte: monthEnd } } }),
+    prisma.payment.findMany({
+      where: { date: { gte: monthStart, lte: monthEnd } },
+      // Para sumar en MXN ahora necesitamos los campos `currency` y
+      // `exchangeRate` del propio Payment (no del evento padre como antes).
+      // Por eso ya no hace falta el include del event aquí.
+    }),
     prisma.expense.findMany({ where: { date: { gte: monthStart, lte: monthEnd } } }),
     prisma.event.findMany({
       where: { date: { gte: monthStart, lte: monthEnd }, status: { not: "cancelado" } },
@@ -67,13 +74,27 @@ export default async function DashboardPage() {
     }),
   ]);
 
-  // Cálculos SIEMPRE en MXN (la BD guarda en MXN)
-  const incomeMonth = monthPayments.reduce((s, p) => s + p.amount, 0);
-  const expensesMonth = monthExpenses.reduce((s, e) => s + e.amount, 0);
-  const profitMonth = incomeMonth - expensesMonth;
+  // ============================================================
+  // Cálculos en MXN — moneda principal del dashboard.
+  //
+  // Reglas:
+  //  - Pago en MXN → se suma directo (paymentAmountMxn devuelve amount)
+  //  - Pago en USD → se convierte usando el TC guardado al momento del pago
+  //    (paymentAmountMxn devuelve amount * exchangeRate)
+  //  - Gastos: el modelo Expense no tiene currency, se tratan como MXN.
+  //  - Por cobrar: para eventos MXN es el balance directo. Para eventos USD,
+  //    pendingBalanceMxn convierte a MXN usando el TC más reciente del evento
+  //    (foto del último pago) o DEFAULT_EXCHANGE_RATE como fallback.
+  // ============================================================
+  const incomeMxn = monthPayments.reduce((s, p) => s + paymentAmountMxn(p), 0);
+  const expensesMxn = monthExpenses.reduce((s, e) => s + e.amount, 0);
+  const profitMxn = incomeMxn - expensesMxn;
 
   const pending = allEvents.filter((e) => e.status !== "cancelado");
-  const pendingTotal = pending.reduce((s, e) => s + pendingBalance(e), 0);
+  const pendingTotalMxn = pending.reduce(
+    (s, e) => s + pendingBalanceMxn(e, DEFAULT_EXCHANGE_RATE),
+    0,
+  );
   const pendingList = pending
     .filter((e) => pendingBalance(e) > 0)
     .sort((a, b) => +new Date(a.date) - +new Date(b.date))
@@ -98,29 +119,30 @@ export default async function DashboardPage() {
         rightSlot={<CurrencyModeBadge />}
       />
 
-      {/* KPIs principales — utilidad y por cobrar destacados como tarjetas grandes */}
+      {/* KPIs principales — todos en MXN. La conversión de pagos USD a MXN
+          se hace en paymentAmountMxn() usando el TC guardado por pago. */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         <StatCard
           label={t("kpi.income")}
-          value={<CurrencyDisplay amountMxn={incomeMonth} />}
+          value={<CurrencyDisplay amountMxn={incomeMxn} />}
           tone="success"
         />
         <StatCard
           label={t("kpi.expenses")}
-          value={<CurrencyDisplay amountMxn={expensesMonth} />}
+          value={<CurrencyDisplay amountMxn={expensesMxn} />}
           tone="danger"
         />
         <StatCard
           label={t("kpi.profit")}
-          value={<CurrencyDisplay amountMxn={profitMonth} />}
-          tone={profitMonth >= 0 ? "success" : "danger"}
+          value={<CurrencyDisplay amountMxn={profitMxn} />}
+          tone={profitMxn >= 0 ? "success" : "danger"}
           hint={t("kpi.profit.hint")}
           highlight
         />
         <StatCard
           label={t("kpi.pending")}
-          value={<CurrencyDisplay amountMxn={pendingTotal} />}
-          tone={pendingTotal > 0 ? "warn" : "neutral"}
+          value={<CurrencyDisplay amountMxn={pendingTotalMxn} />}
+          tone={pendingTotalMxn > 0 ? "warn" : "neutral"}
           hint={t("kpi.pending.hint")}
           highlight
         />
@@ -171,7 +193,7 @@ export default async function DashboardPage() {
                 return (
                   <li key={ev.id}>
                     <Link
-                      href={`/eventos/${ev.id}/editar`}
+                      href={`/eventos/${ev.id}`}
                       className="flex items-center gap-3 px-4 py-4 active:bg-slate-50 sm:gap-4 sm:px-5"
                     >
                       <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700">
@@ -241,7 +263,7 @@ export default async function DashboardPage() {
               {pendingList.map((ev) => (
                 <li key={ev.id}>
                   <Link
-                    href={`/eventos/${ev.id}/editar`}
+                    href={`/eventos/${ev.id}`}
                     className="flex items-center justify-between gap-3 px-4 py-3 active:bg-slate-50 sm:px-5"
                   >
                     <div className="min-w-0">

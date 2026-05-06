@@ -7,7 +7,7 @@ import CurrencyDisplay from "@/components/ui/CurrencyDisplay";
 import CurrencyModeBadge from "@/components/ui/CurrencyModeBadge";
 import { formatAmount, type Currency } from "@/lib/currency";
 import { deletePayment } from "@/lib/actions/payments";
-import { fmtDate, fmtDateShort, getMethodLabels } from "@/lib/utils";
+import { fmtDate, fmtDateShort, getMethodLabels, paymentAmountMxn } from "@/lib/utils";
 import { getServerT } from "@/lib/i18n-server";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +33,10 @@ export default async function PagosPage() {
     include: { event: true },
   });
 
-  const total = payments.reduce((s, p) => s + p.amount, 0);
+  // Total de TODOS los pagos en MXN equivalente. Cada pago aporta:
+  //   - su `amount` si es MXN
+  //   - su `amount * exchangeRate` si es USD (foto del TC al momento del pago)
+  const totalMxn = payments.reduce((s, p) => s + paymentAmountMxn(p), 0);
 
   return (
     <div>
@@ -42,7 +45,7 @@ export default async function PagosPage() {
         subtitle={
           <>
             {t("page.pagos.subtitle", { count: payments.length })}{" "}
-            <CurrencyDisplay amountMxn={total} />
+            <CurrencyDisplay amountMxn={totalMxn} />
           </>
         }
         action={{ href: "/pagos/nuevo", label: t("page.pagos.new") }}
@@ -91,8 +94,13 @@ export default async function PagosPage() {
                   </div>
                   <div className="shrink-0 text-right">
                     <div className="text-lg font-bold text-emerald-700">
-                      {formatAmount(p.amount, p.event.currency as Currency)}
+                      {formatAmount(paymentAmountMxn(p), "MXN")}
                     </div>
+                    {p.currency === "USD" && (
+                      <div className="text-xs text-slate-500">
+                        ({formatAmount(p.amount, "USD")})
+                      </div>
+                    )}
                   </div>
                 </Link>
                 <div className="flex gap-2">
@@ -146,7 +154,12 @@ export default async function PagosPage() {
                         {p.note ?? t("common.empty_dash")}
                       </td>
                       <td className="td text-right font-semibold text-emerald-700">
-                        {formatAmount(p.amount, p.event.currency as Currency)}
+                        {formatAmount(paymentAmountMxn(p), "MXN")}
+                        {p.currency === "USD" && (
+                          <div className="text-xs font-normal text-slate-500">
+                            ({formatAmount(p.amount, "USD")})
+                          </div>
+                        )}
                       </td>
                       <td className="td">
                         <div className="flex justify-end gap-2">

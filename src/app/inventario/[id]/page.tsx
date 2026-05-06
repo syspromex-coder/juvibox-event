@@ -179,7 +179,7 @@ export default async function ArticuloDetallePage({
                       <td className="td text-slate-600">
                         {m.event ? (
                           <Link
-                            href={`/eventos/${m.event.id}/editar`}
+                            href={`/eventos/${m.event.id}`}
                             className="hover:underline"
                           >
                             {m.event.clientName}

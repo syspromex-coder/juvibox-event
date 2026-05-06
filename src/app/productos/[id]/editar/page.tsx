@@ -5,6 +5,8 @@ import PageHeader from "@/components/layout/PageHeader";
 import { updateProduct } from "@/lib/actions/products";
 import { getServerT } from "@/lib/i18n-server";
 
+export const dynamic = "force-dynamic";
+
 export default async function EditarProductoPage({
   params,
 }: {

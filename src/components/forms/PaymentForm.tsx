@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { toInputDate } from "@/lib/utils";
 import { getServerT, getServerLang } from "@/lib/i18n-server";
+import PaymentAmountInputs from "./PaymentAmountInputs";
 
 type PaymentInput = {
   id?: string;
   eventId: string;
   date: Date | string;
   amount: number;
+  currency: string;
+  exchangeRate: number | null;
   method: string;
   note: string | null;
 };
@@ -79,25 +82,21 @@ export default async function PaymentForm({
             </select>
           </div>
 
-          <div>
-            <label className="label">
-              {t("form.amount")} *{" "}
-              <span className="text-slate-400 normal-case">
-                ({t("common.in_mxn")})
-              </span>
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              inputMode="decimal"
-              name="amount"
-              defaultValue={p.amount ?? ""}
-              required
-              className="input"
-            />
-          </div>
-          <div>
+          {/* Bloque cliente: monto + moneda + TC condicional + equivalente live */}
+          <PaymentAmountInputs
+            defaultAmount={p.amount ?? ""}
+            defaultCurrency={p.currency}
+            defaultExchangeRate={p.exchangeRate ?? null}
+            labels={{
+              amount: t("form.amount"),
+              currency: t("form.currency"),
+              exchangeRate: t("form.exchange_rate"),
+              equivalent: t("form.equivalent_mxn"),
+              rateHint: t("form.exchange_rate.hint"),
+            }}
+          />
+
+          <div className="md:col-span-2">
             <label className="label">{t("common.note")}</label>
             <input name="note" defaultValue={p.note ?? ""} className="input" />
           </div>

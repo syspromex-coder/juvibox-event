@@ -1,3 +1,5 @@
+import { DEFAULT_EXCHANGE_RATE } from "./currency";
+
 export const MXN = new Intl.NumberFormat("es-MX", {
   style: "currency",
   currency: "MXN",
@@ -41,28 +43,94 @@ export function endOfMonth(d = new Date()) {
   return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
 }
 
+// ============================================================
+// Payments con moneda propia (MXN/USD)
+// ============================================================
+
+export type PaymentLike = {
+  amount: number;
+  /** "MXN" o "USD". Si está vacío/null, se asume "MXN" (back-compat). */
+  currency?: string | null;
+  /** TC MXN/USD. Solo relevante cuando currency === "USD". */
+  exchangeRate?: number | null;
+};
+
+/**
+ * Equivalente en MXN de un pago.
+ *
+ *   - currency = "MXN" o vacío → amount tal cual
+ *   - currency = "USD" + exchangeRate guardado → amount * exchangeRate (foto exacta)
+ *   - currency = "USD" sin exchangeRate → amount * DEFAULT_EXCHANGE_RATE (best-effort)
+ *
+ * Casos donde exchangeRate puede venir null/0:
+ *   - Pagos viejos creados antes de esta columna (currency=MXN igual, no aplica)
+ *   - Auto-anticipo de un evento USD con deposit > 0: el sistema lo crea como
+ *     currency=USD pero sin TC porque no había nada que convertir cuando solo
+ *     se mira en moneda del evento. Para el dashboard MXN, cae a default.
+ *   - Datos editados a mano en la BD.
+ */
+export function paymentAmountMxn(p: PaymentLike): number {
+  if (p.currency === "USD") {
+    const rate = p.exchangeRate && p.exchangeRate > 0 ? p.exchangeRate : DEFAULT_EXCHANGE_RATE;
+    return p.amount * rate;
+  }
+  return p.amount;
+}
+
 export type EventLike = {
   total: number;
-  payments?: { amount: number }[];
+  /** Moneda del evento ("MXN" | "USD"). Si vacío se asume MXN. */
+  currency?: string | null;
+  payments?: PaymentLike[];
   deposit?: number;
 };
 
 /**
- * Saldo pendiente: total - suma de pagos. Si no hay pagos cargados,
- * usamos el anticipo como fallback.
+ * Suma de pagos en la MONEDA DEL EVENTO. Para mostrar "Pagado" y "Pendiente"
+ * en cada fila de evento (mantiene su propia moneda).
+ *
+ *   - Evento MXN + pago MXN → pago.amount
+ *   - Evento MXN + pago USD → pago.amount * exchangeRate (USD→MXN)
+ *   - Evento USD + pago USD → pago.amount
+ *   - Evento USD + pago MXN → pago.amount / exchangeRate (MXN→USD), si rate
+ *     está disponible; si no, 0 (defensivo)
  */
-export function pendingBalance(ev: EventLike) {
-  const paid =
-    ev.payments && ev.payments.length > 0
-      ? ev.payments.reduce((s, p) => s + p.amount, 0)
-      : ev.deposit ?? 0;
-  return Math.max(0, (ev.total ?? 0) - paid);
+export function totalPaid(ev: EventLike): number {
+  if (!ev.payments || ev.payments.length === 0) return ev.deposit ?? 0;
+  const eventCur = (ev.currency ?? "MXN") === "USD" ? "USD" : "MXN";
+
+  return ev.payments.reduce((sum, p) => {
+    const payCur = p.currency === "USD" ? "USD" : "MXN";
+    if (payCur === eventCur) {
+      return sum + p.amount;
+    }
+    if (eventCur === "MXN" && payCur === "USD") {
+      return sum + p.amount * (p.exchangeRate ?? 0);
+    }
+    // eventCur === "USD" && payCur === "MXN": pago MXN en evento USD
+    const rate = p.exchangeRate ?? 0;
+    return sum + (rate > 0 ? p.amount / rate : 0);
+  }, 0);
 }
 
-export function totalPaid(ev: EventLike) {
-  if (ev.payments && ev.payments.length > 0)
-    return ev.payments.reduce((s, p) => s + p.amount, 0);
-  return ev.deposit ?? 0;
+/** Saldo pendiente en la moneda del evento. */
+export function pendingBalance(ev: EventLike): number {
+  return Math.max(0, (ev.total ?? 0) - totalPaid(ev));
+}
+
+/**
+ * Saldo pendiente convertido a MXN para agregaciones de dashboard.
+ * Para eventos MXN: idéntico a pendingBalance.
+ * Para eventos USD: pendingBalance(ev) * TC (foto reciente o default).
+ */
+export function pendingBalanceMxn(ev: EventLike, fallbackRate: number): number {
+  const balanceInEventCurrency = pendingBalance(ev);
+  if ((ev.currency ?? "MXN") === "MXN") return balanceInEventCurrency;
+  // evento USD: convertir a MXN
+  const recentRate = ev.payments?.find(
+    (p) => p.currency === "USD" && p.exchangeRate && p.exchangeRate > 0,
+  )?.exchangeRate;
+  return balanceInEventCurrency * (recentRate ?? fallbackRate);
 }
 
 export type IngredientLike = { cost: number; qtyUsed: number };
@@ -380,3 +448,32 @@ export function estimateInventoryNeeds<
   }
   return needs;
 }
+
+// ============================================================
+// Google Maps
+// ============================================================
+
+/**
+ * Construye una URL para abrir una ubicación en Google Maps.
+ *
+ * Reglas:
+ *  - Si el input ya es una URL completa (http/https), se usa tal cual.
+ *    Cubre los casos: link de Google Maps (`https://maps.app.goo.gl/...`,
+ *    `https://www.google.com/maps/...`), o cualquier link compartido.
+ *  - Si NO es URL, se trata como dirección y se construye una búsqueda:
+ *    `https://www.google.com/maps/search/?api=1&query=DIRECCION`
+ *  - Si está vacío, devuelve null (para que el caller no renderice botón).
+ *
+ * El resultado siempre se abre en target="_blank" desde el componente
+ * OpenInMapsButton — no es responsabilidad de esta función.
+ */
+export function buildMapsUrl(location: string | null | undefined): string | null {
+  if (!location) return null;
+  const trimmed = location.trim();
+  if (trimmed.length === 0) return null;
+  // ¿Es una URL ya?
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  // Tratar como dirección de texto libre → búsqueda en Google Maps
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trimmed)}`;
+}
+
