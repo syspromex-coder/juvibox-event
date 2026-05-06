@@ -477,3 +477,20 @@ export function buildMapsUrl(location: string | null | undefined): string | null
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trimmed)}`;
 }
 
+
+// ============================================================
+// Tipo CurrencyAmounts
+// ============================================================
+//
+// Antes existía un componente <CurrencyAmountsView> y helpers sumByCurrency
+// que mostraban montos divididos por moneda. Cuando el dashboard cambió a
+// MXN único (vía paymentAmountMxn / pendingBalanceMxn), esos helpers quedaron
+// sin uso y se eliminaron.
+//
+// Sin embargo, el archivo `src/components/ui/CurrencyAmounts.tsx` sigue en el
+// proyecto y todavía importa este tipo. Lo re-exportamos aquí para que el
+// build pase sin errores de TypeScript. Si en algún momento se decide eliminar
+// definitivamente el archivo huérfano, también puede quitarse este tipo.
+
+/** Montos agrupados por moneda. Usado por el componente CurrencyAmountsView. */
+export type CurrencyAmounts = { MXN: number; USD: number };

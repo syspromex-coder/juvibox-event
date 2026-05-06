@@ -23,6 +23,11 @@ type Props = {
  *   - Todo es 0     → muestra "$0.00 MXN" como default (nunca queda en blanco)
  *
  * NO convierte entre monedas. Es 100% presentación.
+ *
+ * NOTA: Este componente actualmente no se usa en ninguna parte del proyecto.
+ * El dashboard cambió a mostrar todo en MXN único usando paymentAmountMxn /
+ * pendingBalanceMxn. Se conserva el archivo por si se necesita en el futuro
+ * para vistas de detalle multi-moneda.
  */
 export default function CurrencyAmountsView({
   amounts,

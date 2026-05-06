@@ -2,6 +2,7 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
+import type { Role } from "@/types/next-auth";
 
 /**
  * Configuración de NextAuth para Juvibox Admin.
@@ -18,6 +19,19 @@ import { prisma } from "./prisma";
 const AUTH_DEBUG = true;
 function dlog(...args: unknown[]) {
   if (AUTH_DEBUG) console.log("[auth-debug]", ...args);
+}
+
+/**
+ * Normaliza el `role` que viene de la BD (donde es String simple) al tipo
+ * estricto `Role` que esperan los tipos aumentados de NextAuth.
+ *
+ * El schema de Prisma guarda `role` como String, así que técnicamente puede
+ * contener cualquier cosa (datos editados a mano, futuros roles, etc.). Esta
+ * función filtra: solo "ADMIN" pasa como ADMIN; cualquier otro valor cae a
+ * "EMPLEADO" (el más restrictivo, default seguro).
+ */
+function toRole(value: string | null | undefined): Role {
+  return value === "ADMIN" ? "ADMIN" : "EMPLEADO";
 }
 
 export const authOptions: NextAuthOptions = {
@@ -88,12 +102,13 @@ export const authOptions: NextAuthOptions = {
 
           dlog("→ login OK para:", email, "rol:", user.role);
 
-          // El role viaja con el user → de aquí pasa al JWT y luego a la session
+          // El role viaja con el user → de aquí pasa al JWT y luego a la session.
+          // Normalizamos a Role estricto porque la BD guarda String simple.
           return {
             id: user.id,
             email: user.email,
             name: user.name,
-            role: user.role,
+            role: toRole(user.role),
           };
         } catch (err) {
           console.error("[auth] error en authorize():", err);
@@ -104,9 +119,11 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, user }) {
-      // En el primer sign-in, copiamos id+role del user al token
+      // En el primer sign-in, copiamos id+role del user al token.
+      // El user aquí es el que devolvió authorize() arriba, así que su `role`
+      // ya viene como Role normalizado.
       if (user) {
-        const u = user as { id: string; role?: string };
+        const u = user as { id: string; role?: Role };
         token.id = u.id;
         token.role = u.role;
       }
@@ -114,9 +131,11 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (session.user && token) {
-        const u = session.user as { id?: string; role?: string };
+        const u = session.user as { id?: string; role?: Role };
         u.id = token.id as string;
-        u.role = token.role as string;
+        // token.role ya es Role (definido en next-auth/jwt augmentation),
+        // pero TS lo trata como unknown en este contexto, así que normalizamos.
+        u.role = toRole(token.role as string | undefined);
       }
       return session;
     },
